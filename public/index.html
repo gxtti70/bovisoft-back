@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ganadería Control 🐮</title>
+    <style>
+        :root { --primary: #27ae60; --secondary: #2c3e50; --danger: #e74c3c; --info: #3498db; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        header { background: var(--secondary); color: white; padding: 1rem; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        
+        /* Barra de Estadísticas */
+        .stats-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-bottom: 4px solid #ddd; }
+        .stat-card h4 { margin: 0; color: #7f8c8d; font-size: 0.8rem; text-transform: uppercase; }
+        .stat-card p { margin: 5px 0 0; font-size: 1.6rem; font-weight: bold; color: var(--secondary); }
+        .stat-total { border-color: var(--primary); }
+        .stat-promedio { border-color: var(--info); }
+
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 0.9rem; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 15px; width: 100%; box-sizing: border-box; }
+        
+        button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-add { background: var(--primary); color: white; width: 100%; margin-top: 15px; font-size: 16px; }
+        .btn-add:hover { background: #219150; }
+
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+        th { background: #ecf0f1; color: var(--secondary); padding: 15px; text-align: left; }
+        td { padding: 15px; border-top: 1px solid #eee; }
+        .btn-del { background: var(--danger); color: white; font-size: 11px; }
+        .badge { background: #e8f5e9; color: var(--primary); padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; border: 1px solid var(--primary); }
+        .raza-tag { font-weight: bold; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Control de Inventario Ganadero</h1>
+    </header>
+
+    <div class="stats-bar">
+        <div class="stat-card stat-total">
+            <h4>Total Animales</h4>
+            <p id="stat-total">0</p>
+        </div>
+        <div class="stat-card">
+            <h4>Peso Acumulado</h4>
+            <p id="stat-peso-total">0.0 kg</p>
+        </div>
+        <div class="stat-card stat-promedio">
+            <h4>Promedio Lote</h4>
+            <p id="stat-promedio">0.0 kg</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <form id="form-animal">
+            <div class="grid-form">
+                <div><label>N° Arete</label><input type="text" id="arete" required></div>
+                <div><label>Nombre</label><input type="text" id="nombre" required></div>
+                <div>
+                    <label>Raza</label>
+                    <select id="raza" required>
+                        <option value="Brahman">Brahman</option>
+                        <option value="Holstein">Holstein</option>
+                        <option value="Jersey">Jersey</option>
+                        <option value="Angus">Angus</option>
+                        <option value="Gyr">Gyr</option>
+                        <option value="Pardo Suizo">Pardo Suizo</option>
+                        <option value="Cruce/Otro">Cruce / Otro</option>
+                    </select>
+                </div>
+                <div><label>Peso (kg)</label><input type="number" step="0.01" id="peso" required></div>
+            </div>
+            <button type="submit" class="btn-add">Registrar Animal</button>
+        </form>
+    </div>
+
+    <div class="card" style="padding: 0;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Arete</th>
+                    <th>Nombre</th>
+                    <th>Raza</th>
+                    <th>Peso</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="lista-animales"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const tbody = document.getElementById('lista-animales');
+    const coloresRaza = {
+        'Brahman': '#d35400', 'Holstein': '#2c3e50', 'Jersey': '#b7950b',
+        'Angus': '#17202a', 'Gyr': '#922b21', 'Pardo Suizo': '#6e2c00', 'Cruce/Otro': '#7f8c8d'
+    };
+
+    async function obtenerAnimales() {
+        const res = await fetch('/api/animales');
+        const data = await res.json();
+        tbody.innerHTML = '';
+        
+        let pesoTotal = 0;
+        
+        data.animales.forEach(a => {
+            pesoTotal += parseFloat(a.peso_actual);
+            const color = coloresRaza[a.raza] || '#7f8c8d';
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td><span class="badge">${a.arete_visual}</span></td>
+                    <td>${a.nombre}</td>
+                    <td><span class="raza-tag" style="color: ${color}">${a.raza}</span></td>
+                    <td><strong>${a.peso_actual}</strong> kg</td>
+                    <td><button class="btn-del" onclick="eliminar('${a.id}')">Borrar</button></td>
+                </tr>
+            `;
+        });
+
+        // Actualizar estadísticas visuales
+        const total = data.animales.length;
+        document.getElementById('stat-total').innerText = total;
+        document.getElementById('stat-peso-total').innerText = pesoTotal.toFixed(1) + ' kg';
+        document.getElementById('stat-promedio').innerText = (total > 0 ? (pesoTotal / total) : 0).toFixed(1) + ' kg';
+    }
+
+    document.getElementById('form-animal').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nuevo = {
+            arete_visual: document.getElementById('arete').value,
+            nombre: document.getElementById('nombre').value,
+            raza: document.getElementById('raza').value,
+            genero: 'M', // Valor por defecto
+            peso_actual: parseFloat(document.getElementById('peso').value)
+        };
+        await fetch('/api/animales', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nuevo)
+        });
+        document.getElementById('form-animal').reset();
+        obtenerAnimales();
+    });
+
+    async function eliminar(id) {
+        if(confirm('¿Seguro?')) {
+            await fetch(`/api/animales/${id}`, { method: 'DELETE' });
+            obtenerAnimales();
+        }
+    }
+
+    obtenerAnimales();
+</script>
+</body>
+</html>
