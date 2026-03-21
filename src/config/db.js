@@ -1,17 +1,12 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// Creamos el pool usando directamente la URL
 const pool = new Pool({
-  // Si no tienes un archivo .env configurado, usará los valores de la derecha
-  user: process.env.DB_USER || 'gxtti_admin', 
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'ganaderia_db',
-  password: process.env.DB_PASSWORD || 'ganadero_pro',
-  port: 5432,
-});
-
-pool.on('connect', () => {
-  console.log('🐘 DB Conectada: El ganado está a salvo.');
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false // ¡ESTO ES VITAL! Sin esto, Neon rechazará la conexión por seguridad.
+  }
 });
 
 module.exports = pool;
